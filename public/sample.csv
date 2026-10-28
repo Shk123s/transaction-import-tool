@@ -1,0 +1,5 @@
+transaction_id,customer_name,account_number,amount
+TXN1006,Alice Smith,ACC-90812,250.50
+TXN1007,Bob Jones,ACC-90813,1000.00
+TXN1008,Charlie Brown,ACC-90814,45.20
+TXN1009,Diana Prince,ACC-90815,500.00
