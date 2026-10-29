@@ -122,26 +122,3 @@ TXN1003,Charlie Brown,ACC-90814,45.20
 TXN1004,Diana Prince,ACC-90815,500.00
 ```
 
-## Troubleshooting
-
-### Workbench says the server is offline
-
-1. Start the MySQL Windows service.
-2. Run `Test-NetConnection localhost -Port 3306` in PowerShell.
-3. Re-test the Workbench connection and confirm the hostname, port, username, and password.
-
-### `Cannot read properties of undefined (reading 'then')`
-
-Your `server.js` calls `initDatabase().then(...)`, so `initDatabase()` must return a Promise. If it uses callback-based SQLite APIs and returns nothing, this error occurs. Update the database initialization to return a Promise or change startup code to use the callback consistently.
-
-### The application still uses SQLite
-
-Check `config/database.js` and related modules. If you see `require('sqlite3')`, the code is using SQLite, regardless of whether `mysql2` is installed. Installing `mysql2` alone does not migrate the code or data. For a MySQL-backed app, use `mysql2` consistently in the database connection, transaction controller, and audit logger.
-
-## Security notes
-
-- Never commit `.env` or real database credentials.
-- Use parameterized queries for values supplied by users.
-- Validate uploaded files and CSV contents.
-- Restrict batch authorization to authenticated, authorized users before using the application with real financial data.
-- Do not describe the application as production-ready until database consistency, authorization, error handling, and automated tests have been verified.
