@@ -1,87 +1,118 @@
-# Transaction Import & Processing Tool (MySQL)
+# Transaction Import & Processing Tool
 
-A production-ready, clean-architecture Node.js & Express application for importing, validating, detecting duplicates, and authorizing financial transaction batches from CSV files with MySQL storage.
+A Node.js and Express application for importing transaction records from CSV files, validating rows, detecting duplicate transaction IDs, tracking upload batches, authorizing transactions, and recording audit events.
 
----
+> **Database note:** This README documents the intended MySQL setup using the `mysql2` driver. Make sure `config/database.js`, controllers, and audit logging actually use `mysql2` before describing the running application as MySQL-backed. A file that imports `sqlite3` is using SQLite instead.
 
-## 🚀 Features & Evaluation Criteria Fulfilled
+## Features
 
-1. **Functionality (40%)**:
-   - CSV file upload via multipart/form-data.
-   - Robust validation (mandatory fields, positive amount check).
-   - Batch status tracking (`PENDING`, `PROCESSED`, `AUTHORIZED`, `INVALID`).
-   - Batch authorization (approve pending valid transactions).
-   - Audit logging of all administrative actions.
+- Upload CSV files using `multipart/form-data`.
+- Validate required fields and ensure transaction amounts are greater than zero.
+- Detect duplicate transaction IDs within a CSV and against existing database records.
+- Track uploads as batches and store per-row validation errors.
+- Approve pending valid transactions.
+- Record audit events for important actions.
+- Explore API endpoints using Swagger UI.
+- Use the dashboard to upload files and inspect batches and transactions.
+- Run automated tests with Jest and Supertest, if the test suite is configured.
 
-2. **Code Structure (25%)** (Strict Separation of Concerns):
-   - **Database Connection**: `config/database.js` (MySQL connection pool & schema creation).
-   - **Controllers**: `controllers/transactionController.js` (Business logic & CSV processing).
-   - **Routes**: `routes/transactionRoutes.js` (API endpoint routing).
-   - **Server / Entry Point**: `server.js` (Express app & Swagger integration).
+## Technology stack
 
-3. **Validation & Error Handling (20%)**:
-   - Duplicate detection *within* the uploaded CSV file (`transaction_id` collision check).
-   - Duplicate detection against *existing records* in the MySQL database.
-   - Detailed error reporting per row (`error_reason` stored in database).
-   - Graceful handling of empty files, malformed CSVs, and database errors.
+- Node.js
+- Express.js
+- MySQL with the `mysql2` Node.js driver (intended configuration)
+- `csv-parser`
+- Multer for file uploads
+- Swagger UI / OpenAPI
+- Jest and Supertest for tests
 
-4. **Database Design (10%)**:
-   - MySQL relational schema:
-     - `Batch`: Tracks batch metadata (filename, row counts, status).
-     - `Transactions`: Stores individual transaction records with unique constraints on `transaction_id`.
-     - `AuditLog`: Tracks system actions and timestamps.
+## Database setup (MySQL)
 
-5. **Documentation & Bonus (15%)**:
-   - **Swagger OpenAPI Documentation**: Interactive API docs available at `/api-docs`.
-   - **Simple Dashboard**: Responsive Web UI (`public/index.html`) for uploading CSVs, viewing batches, inspecting rows, and approving batches.
-   - **Unit Tests**: Jest & Supertest automated test suite (`tests/`).
-   - **Sample CSV**: Included at `public/sample.csv`.
+### 1. Start MySQL Server
 
----
+Start the MySQL Windows service first. In PowerShell opened as Administrator, check the service name:
 
-## 🛠️ Setup & Installation Guide
+```powershell
+Get-Service *MySQL*
+```
 
-### Prerequisites
-- Node.js (v16+ recommended)
-- MySQL Server (running locally, e.g., MySQL 8.0)
-- MySQL Workbench (or any MySQL client)
+If the service is named `MySQL80`, start it with:
 
-### Step 1: Configure Environment Variables
-Copy or update the `.env` file in the project root with your MySQL credentials (matching your MySQL Workbench connection):
+```powershell
+Start-Service MySQL80
+```
+
+In MySQL Workbench, open your saved connection (for example, `root@localhost:3306`). If the connection is offline, the MySQL Server service must be started before Workbench can connect.
+
+### 2. Create and select the database
+
+After connecting in MySQL Workbench, open a SQL tab and run:
+
+```sql
+CREATE DATABASE IF NOT EXISTS transaction_import_tool;
+USE transaction_import_tool;
+SELECT DATABASE();
+```
+
+The final query should return `transaction_import_tool`.
+
+To select it in Workbench later:
+- In the left **SCHEMAS** panel, click the refresh icon.
+- Double-click `transaction_import_tool` so its name becomes bold; this sets it as the default schema for that SQL tab.
+- Or run `USE transaction_import_tool;` in the SQL editor.
+
+The application database name must match the `DB_NAME` environment variable.
+
+### 3. Configure environment variables
+
+Create a `.env` file in the project root. Use your own local MySQL credentials; do not commit this file.
 
 ```env
 PORT=3000
 DB_HOST=localhost
+DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=12345
+DB_PASSWORD=your_mysql_password
 DB_NAME=transaction_import_tool
 ```
 
-### Step 2: Install Dependencies
-Open your terminal in the project directory and run:
+If your MySQL connection uses a different host, port, username, or password, update these values accordingly.
 
-```bash
+### 4. Install and run
+
+From the project directory:
+
+```powershell
 npm install
-```
-
-### Step 3: Start the Application
-```bash
 npm start
 ```
-The server will automatically create the `transaction_db` database and required tables (`Batch`, `Transactions`, `AuditLog`) if they do not exist.
 
-Access points:
-- **Dashboard UI**: `http://localhost:3000`
-- **Swagger API Docs**: `http://localhost:3000/api-docs`
+Expected local URLs, if the server starts successfully:
 
-### Step 4: Run Tests
-```bash
+- Dashboard: `http://localhost:3000`
+- Swagger API docs: `http://localhost:3000/api-docs`
+
+### 5. Run tests
+
+```powershell
 npm test
 ```
 
----
+## Database design
 
-## 📂 Sample CSV Format (`public/sample.csv`)
+The intended relational schema contains:
+
+| Table | Purpose |
+|---|---|
+| `Batch` | Stores each CSV upload, filename, row counts, status, and creation timestamp. |
+| `Transactions` | Stores individual transaction records, their `batch_id`, business `transaction_id`, amount, status, and validation error. |
+| `AuditLog` | Records important actions and timestamps. |
+
+A single batch can contain many transaction records. `Transactions.batch_id` links each transaction to its batch. The internal primary key (`id`) is distinct from the business identifier (`transaction_id`).
+
+## Sample CSV
+
+Save a CSV file with these headers:
 
 ```csv
 transaction_id,customer_name,account_number,amount
@@ -90,3 +121,27 @@ TXN1002,Bob Jones,ACC-90813,1000.00
 TXN1003,Charlie Brown,ACC-90814,45.20
 TXN1004,Diana Prince,ACC-90815,500.00
 ```
+
+## Troubleshooting
+
+### Workbench says the server is offline
+
+1. Start the MySQL Windows service.
+2. Run `Test-NetConnection localhost -Port 3306` in PowerShell.
+3. Re-test the Workbench connection and confirm the hostname, port, username, and password.
+
+### `Cannot read properties of undefined (reading 'then')`
+
+Your `server.js` calls `initDatabase().then(...)`, so `initDatabase()` must return a Promise. If it uses callback-based SQLite APIs and returns nothing, this error occurs. Update the database initialization to return a Promise or change startup code to use the callback consistently.
+
+### The application still uses SQLite
+
+Check `config/database.js` and related modules. If you see `require('sqlite3')`, the code is using SQLite, regardless of whether `mysql2` is installed. Installing `mysql2` alone does not migrate the code or data. For a MySQL-backed app, use `mysql2` consistently in the database connection, transaction controller, and audit logger.
+
+## Security notes
+
+- Never commit `.env` or real database credentials.
+- Use parameterized queries for values supplied by users.
+- Validate uploaded files and CSV contents.
+- Restrict batch authorization to authenticated, authorized users before using the application with real financial data.
+- Do not describe the application as production-ready until database consistency, authorization, error handling, and automated tests have been verified.

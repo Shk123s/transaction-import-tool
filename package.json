@@ -24,6 +24,7 @@
     "express": "^4.19.2",
     "multer": "^2.5.0",
     "mysql2": "^3.9.2",
+    "sqlite3": "^6.0.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0"
   },
